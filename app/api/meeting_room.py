@@ -22,7 +22,7 @@ async def create_new_meeting_room(
     if room_id is not None:
         raise HTTPException(
             status_code=422,
-            detail='Переговорка с таким именем уже существует'
+            detail=f'Переговорка с именем "{meeting_room.name}" уже существует'
         )
     new_room = await create_meeting_room(meeting_room, session)
     return new_room
