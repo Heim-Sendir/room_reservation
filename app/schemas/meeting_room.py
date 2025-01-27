@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 
 class MeetingRoomBase(BaseModel):
@@ -20,6 +20,15 @@ class MeetingRoomCreate(MeetingRoomBase):
             elif len(values['name']) > 100:
                 raise ValueError('Name is too long')
             return values
+
+
+class MeetingRoomUpdate(MeetingRoomBase):
+
+    @validator('name')
+    def name_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError('Имя переговорки не может быть пустым!')
+        return value
 
 
 class MeetingRoomDB(MeetingRoomCreate):
