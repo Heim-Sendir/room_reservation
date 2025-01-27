@@ -1,16 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.validators import check_meeting_room_exists, check_name_duplicate
 from app.core.db import get_async_session
-from app.crud.meeting_room import (create_meeting_room, get_room_id_by_name,
-                                   get_meeting_room_by_id, update_meeting_room,
-                                   read_all_rooms_from_db, delete_meeting_room)
+from app.crud.meeting_room import meeting_room_crud
 from app.schemas.meeting_room import (MeetingRoomCreate, MeetingRoomDB,
                                       MeetingRoomUpdate)
 from app.models.meeting_room import MeetingRoom
 
-router = APIRouter(prefix='/meeting_rooms', tags=['Meeting Rooms'])
+router = APIRouter()
 
 
 @router.post(
@@ -22,14 +21,8 @@ async def create_new_meeting_room(
     meeting_room: MeetingRoomCreate,
     session: AsyncSession = Depends(get_async_session),
 ):
-    room_id = await get_room_id_by_name(meeting_room.name, session)
-    if room_id is not None:
-        raise HTTPException(
-            status_code=422,
-            detail=f'Переговорка с именем "{meeting_room.name}" уже существует'
-        )
     await check_name_duplicate(meeting_room.name, session)
-    new_room = await create_meeting_room(meeting_room, session)
+    new_room = await meeting_room_crud.create(meeting_room, session)
     return new_room
 
 
@@ -41,7 +34,7 @@ async def create_new_meeting_room(
 async def get_all_meeting_rooms(
     session: AsyncSession = Depends(get_async_session)
 ):
-    all_rooms = await read_all_rooms_from_db(session)
+    all_rooms = await meeting_room_crud.get_multi(session)
     return all_rooms
 
 
@@ -66,7 +59,7 @@ async def partially_update_meeting_room(
     if obj_in.name is not None:
         await check_name_duplicate(obj_in.name, session)
 
-    meeting_room = await update_meeting_room(
+    meeting_room = await meeting_room_crud.update(
         meeting_room, obj_in, session
     )
     return meeting_room
@@ -84,32 +77,5 @@ async def remove_meeting_room(
     meeting_room = await check_meeting_room_exists(
         meeting_room_id, session
     )
-    meeting_room = await delete_meeting_room(meeting_room, session)
-    return meeting_room
-
-
-async def check_name_duplicate(
-    room_name: str,
-    session: AsyncSession
-) -> None:
-    room_id = await get_room_id_by_name(room_name, session)
-    if room_id is not None:
-        raise HTTPException(
-            status_code=422,
-            detail='Переговорка с таким именем уже существует!'
-        )
-
-
-async def check_meeting_room_exists(
-    meeting_room_id: int,
-    session: AsyncSession,
-) -> MeetingRoom:
-    meeting_room = await get_meeting_room_by_id(
-        meeting_room_id, session
-    )
-    if meeting_room is None:
-        raise HTTPException(
-            status_code=404,
-            detail='Переговорка не найдена!'
-        )
+    meeting_room = await meeting_room_crud.remove(meeting_room, session)
     return meeting_room
